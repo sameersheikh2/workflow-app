@@ -4,6 +4,16 @@ function taskSorter(a, b) {
   return new Date(a.createdAt) - new Date(b.createdAt);
 }
 
+function insertSorted(queue, task) {
+  let lo = 0, hi = queue.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (taskSorter(task, queue[mid]) < 0) hi = mid;
+    else lo = mid + 1;
+  }
+  queue.splice(lo, 0, task);
+}
+
 function topoSort(tasks) {
   const taskMap = {};
   const inDegree = {};
@@ -21,14 +31,13 @@ function topoSort(tasks) {
     for (const dep of task.dependencies) {
       const depId = dep.toString();
       if (!taskMap[depId]) continue;
-      adj[depId] = adj[depId] || [];
       adj[depId].push(id);
-      inDegree[id] = (inDegree[id] || 0) + 1;
+      inDegree[id] += 1;
     }
   }
 
   const queue = tasks
-    .filter(t => (inDegree[t._id.toString()] || 0) === 0)
+    .filter(t => inDegree[t._id.toString()] === 0)
     .sort(taskSorter);
 
   const result = [];
@@ -37,11 +46,10 @@ function topoSort(tasks) {
     const task = queue.shift();
     result.push(task);
     const id = task._id.toString();
-    for (const neighbor of (adj[id] || [])) {
+    for (const neighbor of adj[id]) {
       inDegree[neighbor]--;
       if (inDegree[neighbor] === 0) {
-        queue.push(taskMap[neighbor]);
-        queue.sort(taskSorter);
+        insertSorted(queue, taskMap[neighbor]);
       }
     }
   }

@@ -6,6 +6,7 @@ const AuditLog = require('../models/AuditLog');
 const { generateInviteToken, verifyInviteToken } = require('../utils/inviteToken');
 const { auditLog } = require('../services/auditLogger');
 const { getMemberProject } = require('../utils/memberGuard');
+const { ROLES } = require('../utils/constants');
 
 router.use(authGuard);
 
@@ -30,7 +31,7 @@ router.post('/', async (req, res, next) => {
       name,
       description,
       owner: req.user.userId,
-      members: [{ userId: req.user.userId, role: 'owner' }],
+      members: [{ userId: req.user.userId, role: ROLES.OWNER }],
     });
 
     auditLog(req.user.userId, 'project.created', 'Project', project._id);
@@ -55,7 +56,7 @@ router.post('/:id/invite', async (req, res, next) => {
     const project = await getMemberProject(req.params.id, req.user.userId);
 
     const isOwner = project.members.some(
-      m => m.userId.toString() === req.user.userId.toString() && m.role === 'owner'
+      m => m.userId.toString() === req.user.userId.toString() && m.role === ROLES.OWNER
     );
     if (!isOwner) {
       return res.status(403).json({ success: false, error: 'Only owner can generate invite' });
@@ -96,7 +97,7 @@ router.post('/join', async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'Already a member' });
     }
 
-    project.members.push({ userId: req.user.userId, role: 'member' });
+    project.members.push({ userId: req.user.userId, role: ROLES.MEMBER });
     await project.save();
 
     auditLog(req.user.userId, 'member.joined', 'Project', project._id);

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const authGuard = require('../middleware/authGuard');
 const { getMemberProject } = require('../utils/memberGuard');
+const { ROLES } = require('../utils/constants');
 const WebhookDelivery = require('../models/WebhookDelivery');
 
 router.use(authGuard);
@@ -9,8 +10,15 @@ router.use(authGuard);
 router.post('/:projectId/webhook', async (req, res, next) => {
   try {
     const project = await getMemberProject(req.params.projectId, req.user.userId);
-    const { url } = req.body;
 
+    const isOwner = project.members.some(
+      m => m.userId.toString() === req.user.userId.toString() && m.role === ROLES.OWNER
+    );
+    if (!isOwner) {
+      return res.status(403).json({ success: false, error: 'Only owner can set webhook URL' });
+    }
+
+    const { url } = req.body;
     if (!url) {
       return res.status(400).json({ success: false, error: 'Webhook URL is required' });
     }

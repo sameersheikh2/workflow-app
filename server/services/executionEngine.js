@@ -1,6 +1,7 @@
 const Task = require('../models/Task');
 const { topoSort } = require('../utils/topoSort');
-const { decrypt } = require('../utils/encrypt');
+const { decryptTask } = require('../utils/decryptTask');
+const { STATUS } = require('../utils/constants');
 
 async function computeExecutionPlan(projectId) {
   const tasks = await Task.find({ projectId });
@@ -9,29 +10,23 @@ async function computeExecutionPlan(projectId) {
   const eligibleTasks = [];
 
   for (const task of tasks) {
-    if (task.status === 'Completed') continue;
+    if (task.status === STATUS.COMPLETED) continue;
 
-    if (task.status === 'Blocked') {
-      blockedTasks.push({ task, reason: 'Explicitly blocked' });
+    if (task.status === STATUS.BLOCKED) {
+      blockedTasks.push({ task: decryptTask(task), reason: 'Explicitly blocked' });
       continue;
     }
 
-    if (task.status === 'Failed' && task.retryCount >= task.maxRetries) {
-      blockedTasks.push({ task, reason: 'Max retries exceeded' });
+    if (task.status === STATUS.FAILED && task.retryCount >= task.maxRetries) {
+      blockedTasks.push({ task: decryptTask(task), reason: 'Max retries exceeded' });
       continue;
     }
 
     eligibleTasks.push(task);
   }
 
-  const executionOrder = topoSort(eligibleTasks);
-
-  for (const task of executionOrder) {
-    task.description = decrypt(task.description);
-  }
-  for (const item of blockedTasks) {
-    item.task.description = decrypt(item.task.description);
-  }
+  const sorted = topoSort(eligibleTasks);
+  const executionOrder = sorted.map(decryptTask);
 
   return { executionOrder, blockedTasks };
 }

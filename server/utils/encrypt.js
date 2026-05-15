@@ -1,6 +1,10 @@
 const crypto = require('crypto');
 
-const KEY = Buffer.from(process.env.ENCRYPTION_KEY || '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef', 'hex');
+if (!process.env.ENCRYPTION_KEY || process.env.ENCRYPTION_KEY.length < 64) {
+  throw new Error('ENCRYPTION_KEY must be a 64-char hex string. Set it in .env');
+}
+
+const KEY = Buffer.from(process.env.ENCRYPTION_KEY, 'hex');
 
 function encrypt(text) {
   if (!text) return text;

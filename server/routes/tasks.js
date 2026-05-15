@@ -5,17 +5,12 @@ const Task = require('../models/Task');
 const TaskHistory = require('../models/TaskHistory');
 const { getMemberProject } = require('../utils/memberGuard');
 const { hasCycle } = require('../utils/cycleDetect');
-const { encrypt, decrypt } = require('../utils/encrypt');
+const { encrypt } = require('../utils/encrypt');
+const { decryptTask } = require('../utils/decryptTask');
 const { auditLog } = require('../services/auditLogger');
-const webhookService = require('../services/webhookService');
+const { STATUS } = require('../utils/constants');
 
 router.use(authGuard);
-
-function decryptTask(task) {
-  const obj = task.toObject ? task.toObject() : { ...task };
-  obj.description = decrypt(obj.description);
-  return obj;
-}
 
 router.get('/:projectId/tasks', async (req, res, next) => {
   try {
@@ -33,8 +28,14 @@ router.post('/:projectId/tasks', async (req, res, next) => {
     await getMemberProject(req.params.projectId, req.user.userId);
     const { title, description, priority, estimatedHours, dependencies, resourceTag, maxRetries } = req.body;
 
-    if (!title || estimatedHours == null) {
-      return res.status(400).json({ success: false, error: 'Title and estimatedHours are required' });
+    if (!title || !title.trim()) {
+      return res.status(400).json({ success: false, error: 'Title is required' });
+    }
+    if (estimatedHours == null || estimatedHours <= 0) {
+      return res.status(400).json({ success: false, error: 'estimatedHours must be greater than 0' });
+    }
+    if (priority !== undefined && (priority < 1 || priority > 5)) {
+      return res.status(400).json({ success: false, error: 'Priority must be between 1 and 5' });
     }
 
     const allTasks = await Task.find({ projectId: req.params.projectId });
@@ -50,7 +51,7 @@ router.post('/:projectId/tasks', async (req, res, next) => {
 
     const task = await Task.create({
       projectId: req.params.projectId,
-      title,
+      title: title.trim(),
       description: encrypt(description),
       priority,
       estimatedHours,
@@ -95,7 +96,12 @@ router.get('/:projectId/tasks/:taskId/history', async (req, res, next) => {
 router.delete('/:projectId/tasks/:taskId', async (req, res, next) => {
   try {
     await getMemberProject(req.params.projectId, req.user.userId);
-    await Task.findOneAndDelete({ _id: req.params.taskId, projectId: req.params.projectId });
+    const task = await Task.findOneAndDelete({ _id: req.params.taskId, projectId: req.params.projectId });
+    if (!task) return res.status(404).json({ success: false, error: 'Task not found' });
+
+    const io = req.app.get('io');
+    if (io) io.to(`project:${req.params.projectId}`).emit('task:deleted', { taskId: req.params.taskId });
+
     res.json({ success: true, data: null });
   } catch (err) {
     next(err);

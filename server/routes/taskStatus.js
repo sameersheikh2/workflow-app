@@ -5,17 +5,13 @@ const Task = require('../models/Task');
 const TaskHistory = require('../models/TaskHistory');
 const { getMemberProject } = require('../utils/memberGuard');
 const { hasCycle } = require('../utils/cycleDetect');
-const { encrypt, decrypt } = require('../utils/encrypt');
+const { encrypt } = require('../utils/encrypt');
+const { decryptTask } = require('../utils/decryptTask');
 const { auditLog } = require('../services/auditLogger');
 const webhookService = require('../services/webhookService');
+const { STATUS } = require('../utils/constants');
 
 router.use(authGuard);
-
-function decryptTask(task) {
-  const obj = task.toObject ? task.toObject() : { ...task };
-  obj.description = decrypt(obj.description);
-  return obj;
-}
 
 router.put('/:projectId/tasks/:taskId', async (req, res, next) => {
   try {
@@ -49,19 +45,25 @@ router.put('/:projectId/tasks/:taskId', async (req, res, next) => {
       }
     }
 
+    if (updateFields.estimatedHours !== undefined && updateFields.estimatedHours <= 0) {
+      return res.status(400).json({ success: false, error: 'estimatedHours must be greater than 0' });
+    }
+
     const oldStatus = task.status;
     const newStatus = updateFields.status;
 
-    if (newStatus === 'Running') {
-      const deps = await Task.find({ _id: { $in: task.dependencies } });
-      const allDepsCompleted = deps.every(d => d.status === 'Completed');
-      if (!allDepsCompleted) {
-        return res.status(400).json({ success: false, error: 'Not all dependencies are completed' });
+    if (newStatus === STATUS.RUNNING || newStatus === STATUS.COMPLETED) {
+      if (task.dependencies && task.dependencies.length > 0) {
+        const deps = await Task.find({ _id: { $in: task.dependencies } });
+        const allDepsCompleted = deps.every(d => d.status === STATUS.COMPLETED);
+        if (!allDepsCompleted) {
+          return res.status(400).json({ success: false, error: 'Not all dependencies are completed' });
+        }
       }
-      if (task.resourceTag) {
+      if (newStatus === STATUS.RUNNING && task.resourceTag) {
         const conflict = await Task.findOne({
           projectId: task.projectId,
-          status: 'Running',
+          status: STATUS.RUNNING,
           resourceTag: task.resourceTag,
           _id: { $ne: task._id },
         });
@@ -96,14 +98,14 @@ router.put('/:projectId/tasks/:taskId', async (req, res, next) => {
       auditLog(req.user.userId, 'task.status_changed', 'Task', task._id, { from: oldStatus, to: newStatus });
       if (io) io.to(`project:${req.params.projectId}`).emit('task:status', { taskId: task._id, status: newStatus, updatedBy: req.user.userId });
 
-      if (newStatus === 'Completed' && project.webhookUrl) {
+      if (newStatus === STATUS.COMPLETED && project.webhookUrl) {
         webhookService.fire(project._id, project.webhookUrl, task).catch(console.error);
       }
 
-      if (newStatus === 'Failed' && task.retryCount >= task.maxRetries) {
+      if (newStatus === STATUS.FAILED && task.retryCount >= task.maxRetries) {
         const dependents = await Task.find({ projectId: req.params.projectId, dependencies: task._id });
         for (const dep of dependents) {
-          dep.status = 'Blocked';
+          dep.status = STATUS.BLOCKED;
           await dep.save();
         }
         auditLog(req.user.userId, 'task.failed', 'Task', task._id);
@@ -128,13 +130,26 @@ router.post('/:projectId/tasks/:taskId/retry', async (req, res, next) => {
     const task = await Task.findOne({ _id: req.params.taskId, projectId: req.params.projectId });
 
     if (!task) return res.status(404).json({ success: false, error: 'Task not found' });
+    if (task.status !== STATUS.FAILED) {
+      return res.status(400).json({ success: false, error: 'Only failed tasks can be retried' });
+    }
     if (task.retryCount >= task.maxRetries) {
       return res.status(400).json({ success: false, error: 'Max retries exceeded' });
     }
 
     task.retryCount += 1;
-    task.status = 'Pending';
+    task.status = STATUS.PENDING;
     await task.save();
+
+    const dependents = await Task.find({
+      projectId: req.params.projectId,
+      dependencies: task._id,
+      status: STATUS.BLOCKED,
+    });
+    for (const dep of dependents) {
+      dep.status = STATUS.PENDING;
+      await dep.save();
+    }
 
     auditLog(req.user.userId, 'task.retried', 'Task', task._id);
 
