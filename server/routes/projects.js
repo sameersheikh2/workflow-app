@@ -45,6 +45,7 @@ router.post('/', async (req, res, next) => {
 router.get('/:id', async (req, res, next) => {
   try {
     const project = await getMemberProject(req.params.id, req.user.userId);
+    await project.populate('members.userId', 'name email');
     res.json({ success: true, data: project });
   } catch (err) {
     next(err);

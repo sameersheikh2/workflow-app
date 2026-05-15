@@ -53,6 +53,23 @@ function ProjectContent() {
         </div>
       </div>
 
+      <div className="mb-6 bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+        <h2 className="text-gray-900 font-semibold text-base mb-3">Project Members</h2>
+        <div className="flex flex-wrap gap-3">
+          {project?.members?.map((member, idx) => (
+            <div key={idx} className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-md px-3 py-2 text-sm shadow-sm">
+              <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">
+                {member.userId?.name ? member.userId.name.charAt(0).toUpperCase() : '?'}
+              </div>
+              <div className="flex flex-col">
+                <span className="text-gray-800 font-medium leading-tight">{member.userId?.name || 'Unknown'}</span>
+                <span className="text-gray-500 text-xs leading-tight capitalize">{member.role}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-gray-900 font-semibold text-base">Tasks</h2>
