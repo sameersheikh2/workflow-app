@@ -2,12 +2,11 @@ const jwt = require('jsonwebtoken');
 
 function authGuard(req, res, next) {
   try {
-    const header = req.headers.authorization;
-    if (!header || !header.startsWith('Bearer ')) {
+    const token = req.cookies?.token;
+    if (!token) {
       return res.status(401).json({ success: false, error: 'No token provided' });
     }
 
-    const token = header.split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
     next();

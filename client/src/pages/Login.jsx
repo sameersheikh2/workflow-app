@@ -17,8 +17,8 @@ export default function Login() {
     setLoading(true);
     setError('');
     try {
-      const { token, user } = await apiLogin(email, password);
-      login(user, token);
+      const { user } = await apiLogin(email, password);
+      login(user);
       navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.error || 'Something went wrong');

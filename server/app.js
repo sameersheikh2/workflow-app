@@ -11,9 +11,12 @@ const webhookRoutes = require('./routes/webhooks');
 
 const app = express();
 
+const cookieParser = require('cookie-parser');
+
 const clientUrl = process.env.CLIENT_URL ? process.env.CLIENT_URL.replace(/\/$/, '') : 'http://localhost:5173';
 app.use(cors({ origin: [clientUrl, 'http://localhost:5173'], credentials: true }));
 app.use(express.json());
+app.use(cookieParser());
 
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);

@@ -7,16 +7,16 @@ import Project from './pages/Project';
 import Loader from './components/Loader';
 
 function PrivateRoute({ children }) {
-  const { token, loading } = useAuth();
+  const { user, loading } = useAuth();
   if (loading) return <Loader />;
-  if (!token) return <Navigate to="/login" />;
+  if (!user) return <Navigate to="/login" />;
   return children;
 }
 
 function PublicRoute({ children }) {
-  const { token, loading } = useAuth();
+  const { user, loading } = useAuth();
   if (loading) return <Loader />;
-  if (token) return <Navigate to="/dashboard" />;
+  if (user) return <Navigate to="/dashboard" />;
   return children;
 }
 
