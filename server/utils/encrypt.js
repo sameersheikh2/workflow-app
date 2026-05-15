@@ -1,10 +1,14 @@
 const crypto = require('crypto');
 
-if (!process.env.ENCRYPTION_KEY || process.env.ENCRYPTION_KEY.length < 64) {
-  throw new Error('ENCRYPTION_KEY must be a 64-char hex string. Set it in .env');
+if (!process.env.ENCRYPTION_KEY) {
+  throw new Error('ENCRYPTION_KEY is not set in .env');
 }
 
 const KEY = Buffer.from(process.env.ENCRYPTION_KEY, 'hex');
+
+if (KEY.length !== 32) {
+  throw new Error('ENCRYPTION_KEY must be a valid 64-character hex string (producing exactly 32 bytes). Please check your environment variables.');
+}
 
 function encrypt(text) {
   if (!text) return text;

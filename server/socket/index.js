@@ -2,9 +2,11 @@ const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 
 function setupSocket(server) {
+  const clientUrl = process.env.CLIENT_URL ? process.env.CLIENT_URL.replace(/\/$/, '') : 'http://localhost:5173';
+
   const io = new Server(server, {
     cors: {
-      origin: process.env.CLIENT_URL,
+      origin: [clientUrl, 'http://localhost:5173'],
       credentials: true,
     },
   });
