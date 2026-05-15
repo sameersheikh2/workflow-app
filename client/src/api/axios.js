@@ -10,7 +10,10 @@ api.defaults.withCredentials = true;
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const isAuthEndpoint = error.config?.url?.includes('/auth/me');
+    const isAuthPage = window.location.pathname === '/login' || window.location.pathname === '/signup';
+
+    if (error.response?.status === 401 && !isAuthEndpoint && !isAuthPage) {
       window.location.href = '/login';
     }
     return Promise.reject(error);
