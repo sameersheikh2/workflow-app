@@ -5,9 +5,8 @@ export default function useSocket(projectId, mergeTask, patchTask, removeTask) {
   useEffect(() => {
     if (!projectId) return;
 
-    const token = localStorage.getItem('token');
     const socket = io(import.meta.env.VITE_SERVER_URL, {
-      auth: { token },
+      withCredentials: true,
     });
 
     socket.on('connect', () => {

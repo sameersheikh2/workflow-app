@@ -13,7 +13,12 @@ function setupSocket(server) {
 
   io.use((socket, next) => {
     try {
-      const token = socket.handshake.auth.token;
+      const cookieHeader = socket.handshake.headers.cookie;
+      if (!cookieHeader) return next(new Error('No token'));
+      
+      const tokenMatch = cookieHeader.match(/token=([^;]+)/);
+      const token = tokenMatch ? tokenMatch[1] : null;
+
       if (!token) return next(new Error('No token'));
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       socket.user = decoded;
